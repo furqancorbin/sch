@@ -1,0 +1,74 @@
+name: Auto Purge Changed File Only
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  purge-changed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Purge Only Changed Files on jsDelivr
+        run: |
+          # --- AUTO DETECT - Kuch Likhne ki Zaroorat Nahi ---
+          # GITHUB_REPOSITORY = viayoo/blobbox - Isse Auto Nikalega
+          USER="${GITHUB_REPOSITORY%%/*}"
+          REPO="${GITHUB_REPOSITORY##*/}"
+          BRANCH="${GITHUB_REF_NAME}"
+
+          echo "Auto Detected:"
+          echo "User: $USER"
+          echo "Repo: $REPO"
+          echo "Branch: $BRANCH"
+          echo "-----------------------"
+
+          echo "Checking which files changed in this commit..."
+
+          # Pura Push ka Diff Nikalo - Pehle Commit se Ab Tak
+          # Agar Pehla Commit Hai To Saari Files Le Lo
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} 2>/dev/null || git diff --name-only HEAD~1 HEAD)
+          else
+            CHANGED=$(git ls-files)
+          fi
+
+          echo "Changed Files:"
+          echo "$CHANGED"
+
+          if [ -z "$CHANGED" ]; then
+            echo "Koi File Change Nahi Hui - Purge Nahi Hoga"
+            exit 0
+          fi
+
+          # Har Changed File ko Ek Ek Karke Purge Karo
+          echo "$CHANGED" | while read FILE; do
+            # Khali Line Chhodo
+            if [ -z "$FILE" ]; then continue; fi
+
+            # Sirf jsDelivr wali Files - js / css / json / mjs / html / txt
+            case "$FILE" in
+              *.js|*.mjs|*.css|*.json|*.html|*.txt|*.svg|*.png|*.jpg)
+                echo "Purging: $FILE"
+                # File Delete Hui Hai To Purge Mat Karo - Skip Karo
+                if [ ! -f "$FILE" ]; then
+                  echo "File Delete Ho Gayi Hai - Skip: $FILE"
+                  continue
+                fi
+                # jsDelivr Purge API - URL Change Nahi Hoga - Sirf Cache Clear Hoga
+                RESPONSE=$(curl -s "https://purge.jsdelivr.net/gh/$USER/$REPO@$BRANCH/$FILE")
+                echo "Result: $RESPONSE"
+                sleep 1
+                ;;
+              *)
+                echo "Skip (jsDelivr file nahi hai): $FILE"
+                ;;
+            esac
+          done
+
+          echo "✅ Done - Sirf Changed File Purge Hui Hai - URL Wahi Hai"
