@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Blob Downloader
 // @namespace    https://viayoo.com/
-// @version      85.2
+// @version      85.3
 // @description  blob download helper - fixed MediaSource + Event trigger
 // @match        *://*/*
 // @run-at       document-start
